@@ -1,4 +1,5 @@
 import random
+import asyncio
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
@@ -7,6 +8,15 @@ from handlers.keyboards import get_main_keyboard, get_settings_inline_keyboard
 from ai_service import ask_gemini_async, reset_user_chat
 
 router = Router()
+
+async def keep_typing(bot, chat_id: int, stop_event: asyncio.Event):
+    """Периодически отправляет статус «печатает...» до получения ответа."""
+    while not stop_event.is_set():
+        try:
+            await bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+            await asyncio.sleep(4.0)
+        except Exception:
+            break
 
 # 1. Команда /start
 @router.message(CommandStart())
@@ -28,10 +38,10 @@ async def cmd_start(message: Message):
 async def cmd_help(message: Message):
     text = (
         "📖 **Справка по возможностям бота:**\n\n"
-        "🧠 **Искусственный Интеллект**: напишите любой вопрос или задачу (например: *«Объясни теорему Пифагора»* или *«Напиши пост для блога»*).\n\n"
+        "🧠 **Искусственный Интеллект**: напишите любой вопрос или задачу (например: *«Объясни квантовую физику»* или *«Напиши план тренировок»*).\n\n"
         "🎲 **Случайное число** — генератор случайных чисел от 1 до 100.\n"
-        "⚙️ **Настройки** — управление памятью и статусом ИИ.\n"
-        "ℹ️ **О боте** — стек технологий проекта."
+        "⚙️ **Настройки** — управление памятью диалога и сброс контекста.\n"
+        "ℹ️ **О боте** — информация о стеке технологий."
     )
     await message.answer(text, reply_markup=get_main_keyboard())
 
@@ -39,7 +49,7 @@ async def cmd_help(message: Message):
 @router.message(F.text == "🧠 Спросить ИИ")
 async def btn_ask_ai(message: Message):
     await message.answer(
-        "🧠 Я готов! Напишите любой интересующий вас вопрос или тему прямо сюда 👇",
+        "🧠 Я готов! Напишите любой интересующий вас вопрос или тему прямо в чат 👇",
         reply_markup=get_main_keyboard()
     )
 
@@ -55,7 +65,7 @@ async def btn_about(message: Message):
     text = (
         "🤖 **Telegram AI Bot**\n"
         "• **Стек**: Python 3.13, aiogram 3.x (Async)\n"
-        "• **ИИ-ядро**: Google Gemini 3.5 Flash-Lite / 3.6 Flash\n"
+        "• **ИИ-модель**: Google Gemini 3.5 Flash-Lite (Сверхбыстрая генерация)\n"
         "• **Хостинг**: 24/7 Cloud Support (Render / VPS)\n"
         "• **Разработчик**: Denis Kakan"
     )
@@ -92,17 +102,23 @@ async def handle_ai_message(message: Message):
     
     print(f"📩 [TG Сообщение] от {message.from_user.full_name} ({user_id}): «{prompt}»", flush=True)
     
-    # Показываем анимацию «печатает...» в Telegram
-    await message.bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
+    # Запускаем фоновый статус «печатает...»
+    stop_typing_event = asyncio.Event()
+    typing_task = asyncio.create_task(keep_typing(message.bot, message.chat.id, stop_typing_event))
     
-    # Запрашиваем ответ у нейросети асинхронно
-    ai_response = await ask_gemini_async(user_id, prompt)
+    try:
+        # Запрашиваем ответ у нейросети
+        ai_response = await ask_gemini_async(user_id, prompt)
+    finally:
+        # Останавливаем анимацию набора
+        stop_typing_event.set()
+        typing_task.cancel()
     
-    # Отправляем ответ
+    # Отправляем ответ пользователю
     try:
         await message.answer(ai_response, parse_mode="Markdown")
     except Exception:
-        # Fallback без markdown, если в тексте ИИ спецсимволы разметки
+        # Fallback без markdown при спецсимволах
         await message.answer(ai_response)
         
     print(f"📤 [TG Ответ отправлен] для {user_id}", flush=True)

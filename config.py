@@ -1,12 +1,35 @@
-import os
+﻿import os
 import sys
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Загружаем переменные окружения
-load_dotenv(override=True)
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env", override=True)
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+DB_PATH = BASE_DIR / os.getenv("DB_PATH", "database/expenses.db")
+
+CATEGORIES = [
+    "🍔 Рестораны и заведения",
+    "🚴‍♂️ Доставка еды и фастфуд",
+    "🛒 Супермаркеты и продукты",
+    "⛽ Топливо и АЗС",
+    "🧖‍♂️ Развлечения и бани",
+    "👔 Шопинг и одежда",
+    "💡 Коммуналка и связь",
+    "💊 Здоровье и аптеки",
+    "📦 Яндекс Доставка (курьеры)",
+    "📱 Подписки и сервисы",
+    "🚗 Автосервис и запчасти",
+    "🚨 Штрафы ПДД",
+    "📦 Прочее",
+]
+
+DEFAULT_LIMITS = {
+    "🍔 Рестораны и заведения": 50000,
+    "🚴‍♂️ Доставка еды и фастфуд": 20000,
+}
 
 def validate_config():
     """Проверка наличия токена и ключей."""

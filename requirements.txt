@@ -1,4 +1,7 @@
-aiogram>=3.17.0
+﻿aiogram>=3.17.0
+aiofiles>=24.1.0
 python-dotenv>=1.0.0
 google-genai>=2.18.1
-aiofiles>=24.1.0
+pypdf>=6.16.1
+matplotlib>=3.11.1
+openpyxl>=3.1.5

@@ -16,16 +16,17 @@ from aiogram.client.default import DefaultBotProperties
 from config import TELEGRAM_BOT_TOKEN, validate_config
 from database.db import init_db
 from handlers.user import router as user_router
+from handlers.acat_news import router as acat_router
 from server import start_health_server
 
 async def main():
     print("=" * 60, flush=True)
-    print("🤖 Запуск Telegram Finance & AI Чат-Бота (Render 24/7)...", flush=True)
+    print("🤖 Запуск Telegram AI & News Management Бота...", flush=True)
     print("=" * 60, flush=True)
 
     validate_config()
 
-    # Запуск фонового веб-сервера активности для Render
+    # Запуск фонового веб-сервера активности для Render/Cloud 24/7
     start_health_server()
     
     # Инициализация базы данных SQLite
@@ -34,6 +35,9 @@ async def main():
     # Инициализация бота и диспетчера
     bot = Bot(token=TELEGRAM_BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
+    
+    # Подключаем роутеры: сначала специализированный acat_router, затем общий user_router
+    dp.include_router(acat_router)
     dp.include_router(user_router)
 
     bot_info = await bot.get_me()

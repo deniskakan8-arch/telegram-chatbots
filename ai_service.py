@@ -4,7 +4,11 @@ from dotenv import load_dotenv
 
 SYSTEM_INSTRUCTION = (
     "Ты — умный, вежливый и полезный ИИ-помощник в Telegram-боте. "
-    "Отвечай понятно, структурированно, грамотно и емко на русском языке. "
+    "Ты также умеешь помогать с управлением сайтом адвокатской конторы «АСАТ» (www.acat.kz). "
+    "Если пользователь просит опубликовать новость на сайте, проверить кандидатов с Informburo или управлять новостями, "
+    "подскажи ему, что он может нажать кнопку «📰 Новости ACAT.KZ» внизу чата, использовать команду /news, "
+    "или просто отправить ссылку на любую карточку с сайта informburo.kz/cards прямо в чат! "
+    "Отвечай понятно, структурировано, грамотно и емко на русском языке. "
     "Используй красивое форматирование и эмодзи. "
     "Старайся отвечать быстро и емко, если не просят подробностей."
 )
@@ -33,7 +37,6 @@ def get_user_chat(user_id: int):
     """Получение контекстной сессии чата пользователя на сверхбыстрой модели."""
     if user_id not in user_chats:
         from google.genai import types
-        # 1. Приоритет: сверхбыстрая модель gemini-3.5-flash-lite (0.9 сек)
         try:
             user_chats[user_id] = _client.chats.create(
                 model="gemini-3.5-flash-lite",
@@ -44,7 +47,6 @@ def get_user_chat(user_id: int):
                 )
             )
         except Exception:
-            # 2. Резерв: gemini-3.1-flash-lite
             user_chats[user_id] = _client.chats.create(
                 model="gemini-3.1-flash-lite",
                 config=types.GenerateContentConfig(
@@ -63,7 +65,7 @@ def reset_user_chat(user_id: int) -> bool:
     return False
 
 def _sync_ask_gemini(user_id: int, prompt: str) -> str:
-    """Синхронный вызов генерации Gemini (модель flash-lite)."""
+    """Синхронный вызов генерации Gemini."""
     global _client
     if _client is None:
         if not init_gemini():
@@ -74,7 +76,6 @@ def _sync_ask_gemini(user_id: int, prompt: str) -> str:
         response = chat.send_message(prompt)
         text = (response.text or "").strip()
         
-        # Лимит длины одного сообщения в Telegram (4096 символов)
         if len(text) > 4000:
             text = text[:3990] + "...\n\n*(Ответ сокращен из-за лимита Telegram)*"
             

@@ -1,16 +1,17 @@
-import random
 import asyncio
-from aiogram import Router, F
+import random
+from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram.enums import ChatAction
-from handlers.keyboards import get_main_keyboard, get_settings_inline_keyboard
+
 from ai_service import ask_gemini_async, reset_user_chat
+from handlers.keyboards import get_main_keyboard, get_settings_inline_keyboard
 
 router = Router()
 
-async def keep_typing(bot, chat_id: int, stop_event: asyncio.Event):
-    """Периодически отправляет статус «печатает...» до получения ответа."""
+async def keep_typing(bot: Bot, chat_id: int, stop_event: asyncio.Event):
+    """Фоновая анимация 'печатает...' во время ожидания ответа ИИ."""
     while not stop_event.is_set():
         try:
             await bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
@@ -23,14 +24,15 @@ async def keep_typing(bot, chat_id: int, stop_event: asyncio.Event):
 async def cmd_start(message: Message):
     user_name = message.from_user.first_name if message.from_user else "друг"
     text = (
-        f"👋 Привет, {user_name}! Я твой умный Telegram-бот с искусственным интеллектом **Google Gemini**! 🤖✨\n\n"
+        f"👋 Привет, {user_name}! Я твой умный Telegram-ассистент с искусственным интеллектом **Google Gemini**! 🤖✨\n\n"
         "💡 **Что я умею:**\n"
-        "• Отвечать на **любые вопросы** и генерировать тексты/код\n"
-        "• Помнить контекст разговора и вести диалог\n"
-        "• Быстрые команды по кнопкам внизу 👇\n\n"
-        "Просто напиши мне любой вопрос в чат!"
+        "• 📰 **Управлять новостями ACAT.KZ** (поиск на Informburo, авто-вёрстка и публикация)\n"
+        "• 🧠 Отвечать на любые вопросы и генерировать тексты через ИИ\n"
+        "• 💬 Помнить контекст диалога\n"
+        "• ⚡ Быстрые команды по кнопкам внизу 👇\n\n"
+        "Просто напиши мне любой вопрос или нажми **«📰 Новости ACAT.KZ»**!"
     )
-    await message.answer(text, reply_markup=get_main_keyboard())
+    await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
 
 # 2. Команда /help или кнопка «💬 Помощь»
 @router.message(Command("help"))
@@ -38,18 +40,19 @@ async def cmd_start(message: Message):
 async def cmd_help(message: Message):
     text = (
         "📖 **Справка по возможностям бота:**\n\n"
+        "📰 **Новости ACAT.KZ** — поиск юридических карточек на Informburo, просмотр кандидатов и публикация на сайт www.acat.kz в 1 клик.\n\n"
         "🧠 **Искусственный Интеллект**: напишите любой вопрос или задачу (например: *«Объясни квантовую физику»* или *«Напиши план тренировок»*).\n\n"
         "🎲 **Случайное число** — генератор случайных чисел от 1 до 100.\n"
         "⚙️ **Настройки** — управление памятью диалога и сброс контекста.\n"
         "ℹ️ **О боте** — информация о стеке технологий."
     )
-    await message.answer(text, reply_markup=get_main_keyboard())
+    await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
 
 # 3. Кнопка «🧠 Спросить ИИ»
 @router.message(F.text == "🧠 Спросить ИИ")
 async def btn_ask_ai(message: Message):
     await message.answer(
-        "🧠 Я готов! Напишите любой интересующий вас вопрос или тему прямо в чат 👇",
+        "🧠 Я готов! Напишите любой интересующий вас вопрос прямо в чат 👇",
         reply_markup=get_main_keyboard()
     )
 
@@ -57,26 +60,28 @@ async def btn_ask_ai(message: Message):
 @router.message(F.text == "🎲 Случайное число")
 async def btn_random_num(message: Message):
     num = random.randint(1, 100)
-    await message.answer(f"🎲 Ваше случайное число: **{num}**", reply_markup=get_main_keyboard())
+    await message.answer(f"🎲 Ваше случайное число: **{num}**", reply_markup=get_main_keyboard(), parse_mode="Markdown")
 
 # 5. Кнопка «ℹ️ О боте»
 @router.message(F.text == "ℹ️ О боте")
 async def btn_about(message: Message):
     text = (
-        "🤖 **Telegram AI Bot**\n"
+        "🤖 **Telegram AI & Automation Bot**\n"
         "• **Стек**: Python 3.13, aiogram 3.x (Async)\n"
-        "• **ИИ-модель**: Google Gemini 3.5 Flash-Lite (Сверхбыстрая генерация)\n"
+        "• **ИИ-модель**: Google Gemini Flash-Lite\n"
+        "• **Интеграция**: FastEdit CMS (acat.kz) & Informburo Cards Sync\n"
         "• **Хостинг**: 24/7 Cloud Support (Render / VPS)\n"
         "• **Разработчик**: Denis Kakan"
     )
-    await message.answer(text, reply_markup=get_main_keyboard())
+    await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
 
 # 6. Кнопка «⚙️ Настройки»
 @router.message(F.text == "⚙️ Настройки")
 async def btn_settings(message: Message):
     await message.answer(
         "⚙️ **Панель настроек бота:**",
-        reply_markup=get_settings_inline_keyboard()
+        reply_markup=get_settings_inline_keyboard(),
+        parse_mode="Markdown"
     )
 
 # 7. Callback на очистку контекста диалога
@@ -86,7 +91,8 @@ async def callback_clear_context(callback: CallbackQuery):
     await callback.answer("Память очищена! 🧹", show_alert=False)
     await callback.message.edit_text(
         "🧹 **Память нашего диалога очищена!**\nТеперь нейросеть начинает разговор с чистого листа.",
-        reply_markup=get_settings_inline_keyboard()
+        reply_markup=get_settings_inline_keyboard(),
+        parse_mode="Markdown"
     )
 
 # 8. Callback на проверку статуса
@@ -102,23 +108,18 @@ async def handle_ai_message(message: Message):
     
     print(f"📩 [TG Сообщение] от {message.from_user.full_name} ({user_id}): «{prompt}»", flush=True)
     
-    # Запускаем фоновый статус «печатает...»
     stop_typing_event = asyncio.Event()
     typing_task = asyncio.create_task(keep_typing(message.bot, message.chat.id, stop_typing_event))
     
     try:
-        # Запрашиваем ответ у нейросети
         ai_response = await ask_gemini_async(user_id, prompt)
     finally:
-        # Останавливаем анимацию набора
         stop_typing_event.set()
         typing_task.cancel()
     
-    # Отправляем ответ пользователю
     try:
         await message.answer(ai_response, parse_mode="Markdown")
     except Exception:
-        # Fallback без markdown при спецсимволах
         await message.answer(ai_response)
         
     print(f"📤 [TG Ответ отправлен] для {user_id}", flush=True)

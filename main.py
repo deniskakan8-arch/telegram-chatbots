@@ -13,21 +13,25 @@ if sys.platform == "win32":
 from aiogram import Bot, Dispatcher
 from config import TELEGRAM_BOT_TOKEN, validate_config
 from handlers.user import router as user_router
+from handlers.acat_news import router as acat_router
 from server import start_health_server
 
 async def main():
     print("=" * 60, flush=True)
-    print("🤖 Запуск Telegram AI Чат-Бота...", flush=True)
+    print("🤖 Запуск Telegram AI & News Management Бота...", flush=True)
     print("=" * 60, flush=True)
 
     validate_config()
 
-    # Запускаем фоновый веб-сервер активности для Render/Cloud 24/7
+    # Запуск фонового веб-сервера активности для Render/Cloud 24/7
     start_health_server()
 
     # Инициализация бота и диспетчера aiogram
     bot = Bot(token=TELEGRAM_BOT_TOKEN)
     dp = Dispatcher()
+    
+    # Подключаем роутеры: сначала специализированный acat_router, затем общий user_router
+    dp.include_router(acat_router)
     dp.include_router(user_router)
 
     # Проверка подключения

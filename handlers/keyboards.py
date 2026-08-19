@@ -5,12 +5,13 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
     """Главная клавиатура бота (Reply Keyboard)."""
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
+            [KeyboardButton(text="📊 Расходы за месяц"), KeyboardButton(text="📈 Динамика трат")],
+            [KeyboardButton(text="🚨 Лимиты и бюджет"), KeyboardButton(text="📁 Загрузить выписку")],
             [KeyboardButton(text="🧠 Спросить ИИ"), KeyboardButton(text="📰 Новости ACAT.KZ")],
-            [KeyboardButton(text="🎲 Случайное число"), KeyboardButton(text="ℹ️ О боте")],
             [KeyboardButton(text="💬 Помощь"), KeyboardButton(text="⚙️ Настройки")]
         ],
         resize_keyboard=True,
-        input_field_placeholder="Напишите вопрос ИИ или выберите команду..."
+        input_field_placeholder="Напишите расход, отправьте выписку или задайте вопрос..."
     )
     return keyboard
 

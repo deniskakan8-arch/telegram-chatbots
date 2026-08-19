@@ -1,17 +1,26 @@
+﻿import random
 import asyncio
-import random
-from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery
+from datetime import datetime
+from aiogram import Router, F
+from aiogram.types import Message, CallbackQuery, BufferedInputFile
 from aiogram.filters import CommandStart, Command
 from aiogram.enums import ChatAction
 
+from handlers.keyboards import get_main_keyboard, get_settings_inline_keyboard, get_acat_menu_keyboard
 from ai_service import ask_gemini_async, reset_user_chat
-from handlers.keyboards import get_main_keyboard, get_settings_inline_keyboard
+from database.models import (
+    add_user, add_expense, add_expenses_bulk, get_expenses_by_period,
+    get_total_spent, get_limits, set_limit, get_monthly_dynamics
+)
+from services.ai_parser import parse_expense_text, parse_voice_audio, parse_receipt_image
+from services.statement_parser import parse_statement_pdf, analyze_statement_dynamics
+from services.chart_generator import generate_pie_chart, generate_bar_chart
+from config import CATEGORIES, DEFAULT_LIMITS
 
 router = Router()
 
-async def keep_typing(bot: Bot, chat_id: int, stop_event: asyncio.Event):
-    """Фоновая анимация 'печатает...' во время ожидания ответа ИИ."""
+async def keep_typing(bot, chat_id: int, stop_event: asyncio.Event):
+    """Периодически отправляет статус «печатает...» до получения ответа."""
     while not stop_event.is_set():
         try:
             await bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
@@ -31,13 +40,16 @@ async def cmd_start(message: Message):
             set_limit(user.id, cat, limit)
             
     text = (
-        f"👋 Привет, {user_name}! Я твой умный Telegram-ассистент с искусственным интеллектом **Google Gemini**! 🤖✨\n\n"
+        f"👋 Привет, {user.first_name}!\n\n"
+        "Я твой персональный **AI-ассистент по контролю финансов, анализу выписок и помощник Google Gemini**! 🤖✨\n\n"
         "💡 **Что я умею:**\n"
-        "• 📰 **Управлять новостями ACAT.KZ** (поиск на Informburo, авто-вёрстка и публикация)\n"
-        "• 🧠 Отвечать на любые вопросы и генерировать тексты через ИИ\n"
-        "• 💬 Помнить контекст диалога\n"
-        "• ⚡ Быстрые команды по кнопкам внизу 👇\n\n"
-        "Просто напиши мне любой вопрос или нажми **«📰 Новости ACAT.KZ»**!"
+        "• ✍️ **Учёт трат**: пишите текстом `Обед 2600`, `Бензин 8000 в Qazaq Oil`, `Wolt 5400`\n"
+        "• 📁 **Выписки из банков**: скиньте PDF-файл выписки — я распознаю траты и сравню динамику\n"
+        "• 🎙 **Голос и фото чеков**: присылайте голосовые или снимки чеков\n"
+        "• 🚨 **Лимиты и бюджет**: защищаю от перерасхода на рестораны и доставки\n"
+        "• 🧠 **Диалог с ИИ**: отвечу на любые вопросы и задачи\n"
+        "• 📰 **Новости ACAT.KZ**: управление публикациями сайта\n\n"
+        "Управляйте через меню внизу 👇"
     )
     await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
 
@@ -46,16 +58,24 @@ async def cmd_start(message: Message):
 @router.message(F.text == "💬 Помощь")
 async def cmd_help(message: Message):
     text = (
-        "📖 **Справка по возможностям бота:**\n\n"
-        "📰 **Новости ACAT.KZ** — поиск юридических карточек на Informburo, просмотр кандидатов и публикация на сайт www.acat.kz в 1 клик.\n\n"
-        "🧠 **Искусственный Интеллект**: напишите любой вопрос или задачу (например: *«Объясни квантовую физику»* или *«Напиши план тренировок»*).\n\n"
-        "🎲 **Случайное число** — генератор случайных чисел от 1 до 100.\n"
-        "⚙️ **Настройки** — управление памятью диалога и сброс контекста.\n"
-        "ℹ️ **О боте** — информация о стеке технологий."
+        "📖 **Справка по возможностям:**\n\n"
+        "📊 `/stats` или **Расходы за месяц** — круговая диаграмма и структура расходов\n"
+        "📈 `/trends` или **Динамика трат** — сравнение месяцев, всплески трат (+%) и экономия (-%)\n"
+        "🚨 `/limits` или **Лимиты и бюджет** — просмотр и настройка ограничений (например: `Лимит Рестораны 60000`)\n"
+        "📁 **PDF-выписки** — просто отправьте файл документом\n"
+        "🧠 **Спросить ИИ** — задать любой общий вопрос нейросети\n"
+        "📰 **Новости ACAT.KZ** — панель синхронизации и публикаций новостей\n"
+        "✍️ **Быстрый расход**: пишите прямо в чат `Кофе 1500`"
     )
     await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
 
-# 3. Кнопка «🧠 Спросить ИИ»
+# 3. Меню настроек
+@router.message(F.text == "⚙️ Настройки")
+async def btn_settings(message: Message):
+    text = "⚙️ **Меню настроек бота:**\n\nВыберите действие ниже:"
+    await message.answer(text, reply_markup=get_settings_inline_keyboard(), parse_mode="Markdown")
+
+# 4. Кнопка «🧠 Спросить ИИ»
 @router.message(F.text == "🧠 Спросить ИИ")
 async def btn_ask_ai(message: Message):
     await message.answer(
@@ -63,53 +83,10 @@ async def btn_ask_ai(message: Message):
         reply_markup=get_main_keyboard()
     )
 
-# 4. Кнопка «🎲 Случайное число»
-@router.message(F.text == "🎲 Случайное число")
-async def btn_random_num(message: Message):
-    num = random.randint(1, 100)
-    await message.answer(f"🎲 Ваше случайное число: **{num}**", reply_markup=get_main_keyboard(), parse_mode="Markdown")
-
-# 5. Кнопка «ℹ️ О боте»
-@router.message(F.text == "ℹ️ О боте")
-async def btn_about(message: Message):
-    text = (
-        "🤖 **Telegram AI & Automation Bot**\n"
-        "• **Стек**: Python 3.13, aiogram 3.x (Async)\n"
-        "• **ИИ-модель**: Google Gemini Flash-Lite\n"
-        "• **Интеграция**: FastEdit CMS (acat.kz) & Informburo Cards Sync\n"
-        "• **Хостинг**: 24/7 Cloud Support (Render / VPS)\n"
-        "• **Разработчик**: Denis Kakan"
-    )
-    await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
-
-# 6. Кнопка «⚙️ Настройки»
-@router.message(F.text == "⚙️ Настройки")
-async def btn_settings(message: Message):
-    await message.answer(
-        "⚙️ **Панель настроек бота:**",
-        reply_markup=get_settings_inline_keyboard(),
-        parse_mode="Markdown"
-    )
-
-# 7. Callback на очистку контекста диалога
-@router.callback_query(F.data == "clear_context")
-async def callback_clear_context(callback: CallbackQuery):
-    reset_user_chat(callback.from_user.id)
-    await callback.answer("Память очищена! 🧹", show_alert=False)
-    await callback.message.edit_text(
-        "🧹 **Память нашего диалога очищена!**\nТеперь нейросеть начинает разговор с чистого листа.",
-        reply_markup=get_settings_inline_keyboard(),
-        parse_mode="Markdown"
-    )
-
-# 8. Callback на проверку статуса
-@router.callback_query(F.data == "check_status")
-async def callback_check_status(callback: CallbackQuery):
-    await callback.answer("Модуль ИИ активен и готов к работе! 🟢", show_alert=True)
-
-# 9. Обработка всех входящих текстовых сообщений через Google Gemini AI
-@router.message(F.text)
-async def handle_ai_message(message: Message):
+# 5. Статистика расходов (/stats)
+@router.message(F.text == "📊 Расходы за месяц")
+@router.message(Command("stats"))
+async def cmd_stats(message: Message):
     user_id = message.from_user.id
     now = datetime.now()
     start_date = now.strftime("%Y-%m-01")
@@ -118,19 +95,9 @@ async def handle_ai_message(message: Message):
     category_data = get_expenses_by_period(user_id, start_date, end_date)
     total = get_total_spent(user_id, start_date, end_date)
     
-    stop_typing_event = asyncio.Event()
-    typing_task = asyncio.create_task(keep_typing(message.bot, message.chat.id, stop_typing_event))
-    
-    try:
-        ai_response = await ask_gemini_async(user_id, prompt)
-    finally:
-        stop_typing_event.set()
-        typing_task.cancel()
-    
-    try:
-        await message.answer(ai_response, parse_mode="Markdown")
-    except Exception:
-        await message.answer(ai_response)
+    if not category_data or total == 0:
+        await message.answer("ℹ️ В этом месяце расходов пока не зафиксировано. Начните добавлять траты текстом, голосом или загрузите выписку!")
+        return
         
     lines = [f"📊 **Расходы за текущий месяц ({now.strftime('%m.%Y')}):**\n"]
     for cat, amt, count in category_data:
@@ -145,7 +112,7 @@ async def handle_ai_message(message: Message):
     except Exception as e:
         await message.answer("\n".join(lines), parse_mode="Markdown")
 
-# 5. Динамика и тренды (/trends)
+# 6. Динамика и тренды (/trends)
 @router.message(F.text == "📈 Динамика трат")
 @router.message(Command("trends"))
 async def cmd_trends(message: Message):
@@ -172,7 +139,7 @@ async def cmd_trends(message: Message):
     except Exception as e:
         await message.answer(analysis_text, parse_mode="Markdown")
 
-# 6. Лимиты и бюджет (/limits)
+# 7. Лимиты и бюджет (/limits)
 @router.message(F.text == "🚨 Лимиты и бюджет")
 @router.message(Command("limits"))
 async def cmd_limits(message: Message):
@@ -202,7 +169,7 @@ async def cmd_limits(message: Message):
     lines.append("💡 *Чтобы изменить лимит, напишите:* `Лимит Рестораны 60000`")
     await message.answer("\n".join(lines), parse_mode="Markdown")
 
-# 7. Загрузка PDF выписки
+# 8. Загрузка PDF выписки
 @router.message(F.text == "📁 Загрузить выписку")
 async def btn_upload_statement(message: Message):
     await message.answer("📁 Просто прикрепите и отправьте мне файл банковской выписки в формате **PDF**.")
@@ -251,7 +218,7 @@ async def handle_document(message: Message):
     )
     await status_msg.edit_text(res_text, parse_mode="Markdown")
 
-# 8. Голосовые сообщения
+# 9. Голосовые сообщения
 @router.message(F.voice)
 async def handle_voice(message: Message):
     status_msg = await message.answer("🎙 Слушаю и распознаю голосовое...")
@@ -278,7 +245,7 @@ async def handle_voice(message: Message):
         parse_mode="Markdown"
     )
 
-# 9. Фото чеков
+# 10. Фото чеков
 @router.message(F.photo)
 async def handle_photo(message: Message):
     status_msg = await message.answer("🔍 Распознаю чек с фотографии...")
@@ -305,7 +272,7 @@ async def handle_photo(message: Message):
         parse_mode="Markdown"
     )
 
-# 10. Текстовые сообщения (траты или диалог с ИИ)
+# 11. Текстовые сообщения (траты или диалог с ИИ)
 @router.message(F.text)
 async def handle_text(message: Message):
     text = message.text.strip()
@@ -366,9 +333,13 @@ async def handle_text(message: Message):
             stop_event.set()
             await typing_task
 
-# 11. Callback сброса диалога
-@router.callback_query(F.data == "reset_chat")
-async def cb_reset_chat(callback: CallbackQuery):
+# 12. Callbacks настроек
+@router.callback_query(F.data == "clear_context")
+async def cb_clear_context(callback: CallbackQuery):
     reset_user_chat(callback.from_user.id)
     await callback.answer("🧹 Память диалога успешно очищена!", show_alert=True)
     await callback.message.answer("🔄 История общения с ИИ сброшена.")
+
+@router.callback_query(F.data == "check_status")
+async def cb_check_status(callback: CallbackQuery):
+    await callback.answer("✅ Сервис ИИ активен и готов к работе!", show_alert=True)

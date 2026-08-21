@@ -28,31 +28,25 @@ router = Router()
 @router.message(F.text == "📰 Новости ACAT.KZ")
 async def cmd_acat_news_menu(message: Message):
     text = (
-        "⚖️ **Управление новостным порталом ACAT.KZ**
-
-"
-        "Здесь вы можете в один клик отслеживать новые юридические карточки на **Informburo.kz**, "
-        "мгновенно публиковать их на сайт адвокатской конторы [acat.kz](https://www.acat.kz) "
-        "и управлять опубликованными статьями (удаление/просмотр).
-
-"
-        "📌 **Выберите действие:**"
+        "⚖️ <b>Управление новостным порталом ACAT.KZ</b>\n\n"
+        "Здесь вы можете в один клик отслеживать новые юридические карточки на <b>Informburo.kz</b>, "
+        "мгновенно публиковать их на сайт адвокатской конторы <a href=\"https://www.acat.kz\">acat.kz</a> "
+        "и управлять опубликованными статьями (удаление/просмотр).\n\n"
+        "📌 <b>Выберите действие:</b>"
     )
-    await message.answer(text, reply_markup=get_acat_menu_keyboard(), parse_mode="Markdown", disable_web_page_preview=True)
+    await message.answer(text, reply_markup=get_acat_menu_keyboard(), parse_mode="HTML", disable_web_page_preview=True)
 
 # 2. Возврат в меню новостей
 @router.callback_query(F.data == "acat_menu")
 async def cb_acat_menu(callback: CallbackQuery):
     text = (
-        "⚖️ **Управление новостным порталом ACAT.KZ**
-
-"
+        "⚖️ <b>Управление новостным порталом ACAT.KZ</b>\n\n"
         "Выберите действие ниже 👇"
     )
     try:
-        await callback.message.edit_text(text, reply_markup=get_acat_menu_keyboard(), parse_mode="Markdown", disable_web_page_preview=True)
+        await callback.message.edit_text(text, reply_markup=get_acat_menu_keyboard(), parse_mode="HTML", disable_web_page_preview=True)
     except Exception:
-        await callback.message.answer(text, reply_markup=get_acat_menu_keyboard(), parse_mode="Markdown", disable_web_page_preview=True)
+        await callback.message.answer(text, reply_markup=get_acat_menu_keyboard(), parse_mode="HTML", disable_web_page_preview=True)
     await callback.answer()
 
 # 3. Список опубликованных новостей на acat.kz с кнопками удаления
@@ -64,32 +58,28 @@ async def cb_acat_published(callback: CallbackQuery):
     if not published:
         text = "⚠️ Не удалось получить список опубликованных новостей с сайта."
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Меню новостей", callback_data="acat_menu")]])
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
         return
         
-    lines = ["🌐 **Последние опубликованные новости на сайте [acat.kz](https://www.acat.kz/news/):**
-"]
+    lines = ["🌐 <b>Последние опубликованные новости на сайте <a href=\"https://www.acat.kz/news/\">acat.kz</a>:</b>\n"]
     buttons = []
     
     for i, item in enumerate(published[:6], 1):
-        lines.append(f"{i}. **[{item['date']}]** [{item['title']}]({item['url']}) `(ID: {item['id']})`")
+        lines.append(f"{i}. <b>[{item['date']}]</b> <a href=\"{item['url']}\">{item['title']}</a> <code>(ID: {item['id']})</code>")
         buttons.append([
             InlineKeyboardButton(text=f"🌐 #{i} Читать", url=item["url"]),
             InlineKeyboardButton(text=f"🗑 #{i} Удалить (ID: {item['id']})", callback_data=f"acat_del_ask:{item['id']}")
         ])
         
-    lines.append("
-_Для удаления новости нажмите кнопку с корзиной или введите:_ `/delnews <ID>`")
+    lines.append("\n<i>Для удаления новости нажмите кнопку с корзиной или введите:</i> <code>/delnews ID</code>")
     buttons.append([InlineKeyboardButton(text="📋 Кандидаты с Informburo", callback_data="acat_candidates")])
     buttons.append([InlineKeyboardButton(text="⬅️ Меню новостей", callback_data="acat_menu")])
     
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     try:
-        await callback.message.edit_text("
-".join(lines), reply_markup=kb, parse_mode="Markdown", disable_web_page_preview=True)
+        await callback.message.edit_text("\n".join(lines), reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
     except Exception:
-        await callback.message.answer("
-".join(lines), reply_markup=kb, parse_mode="Markdown", disable_web_page_preview=True)
+        await callback.message.answer("\n".join(lines), reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
 
 # 4. Отдельный список для удаления новостей
 @router.callback_query(F.data == "acat_delete_list")
@@ -100,30 +90,26 @@ async def cb_acat_delete_list(callback: CallbackQuery):
     if not published:
         text = "⚠️ Список опубликованных новостей пуст или не удалось подключиться к сайту."
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Меню новостей", callback_data="acat_menu")]])
-        await callback.message.edit_text(text, reply_markup=kb)
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
         return
         
-    lines = ["🗑 **Выберите новость для удаления с сайта acat.kz:**
-"]
+    lines = ["🗑 <b>Выберите новость для удаления с сайта acat.kz:</b>\n"]
     buttons = []
     
     for i, item in enumerate(published[:6], 1):
-        lines.append(f"{i}. **{item['title']}** `(ID: {item['id']}, {item['date']})`")
+        lines.append(f"{i}. <b>{item['title']}</b> <code>(ID: {item['id']}, {item['date']})</code>")
         buttons.append([
             InlineKeyboardButton(text=f"🗑 Удалить #{i} (ID {item['id']})", callback_data=f"acat_del_ask:{item['id']}")
         ])
         
-    lines.append("
-_Либо введите команду вручную:_ `/delnews <ID>`")
+    lines.append("\n<i>Либо введите команду вручную:</i> <code>/delnews ID</code>")
     buttons.append([InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="acat_menu")])
     
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     try:
-        await callback.message.edit_text("
-".join(lines), reply_markup=kb, parse_mode="Markdown")
+        await callback.message.edit_text("\n".join(lines), reply_markup=kb, parse_mode="HTML")
     except Exception:
-        await callback.message.answer("
-".join(lines), reply_markup=kb, parse_mode="Markdown")
+        await callback.message.answer("\n".join(lines), reply_markup=kb, parse_mode="HTML")
 
 # 5. Запрос подтверждения удаления новости
 @router.callback_query(F.data.startswith("acat_del_ask:"))
@@ -139,24 +125,18 @@ async def cb_acat_del_ask(callback: CallbackQuery):
             break
             
     text = (
-        f"⚠️ **Подтверждение удаления**
-
-"
-        f"Вы действительно хотите безвозвратно удалить с сайта **acat.kz** новость:
-"
-        f"📰 **{title}**
-"
-        f"🆔 **ID в CMS:** `{news_id}`
-
-"
-        f"_Действие удалит запись из базы FastEdit CMS и уберёт страницу с сайта._"
+        f"⚠️ <b>Подтверждение удаления</b>\n\n"
+        f"Вы действительно хотите безвозвратно удалить с сайта <b>acat.kz</b> новость:\n"
+        f"📰 <b>{title}</b>\n"
+        f"🆔 <b>ID в CMS:</b> <code>{news_id}</code>\n\n"
+        f"<i>Действие удалит запись из базы FastEdit CMS и уберёт страницу с сайта.</i>"
     )
     
     kb = get_confirm_delete_keyboard(news_id)
     try:
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     except Exception:
-        await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
+        await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
 
 # 6. Выполнение удаления новости
 @router.callback_query(F.data.startswith("acat_del_do:"))
@@ -168,27 +148,23 @@ async def cb_acat_del_do(callback: CallbackQuery):
     
     if res.get("success"):
         text = (
-            f"✅ **Новость ID `{news_id}` успешно удалена с сайта acat.kz!**
-
-"
+            f"✅ <b>Новость ID <code>{news_id}</code> успешно удалена с сайта acat.kz!</b>\n\n"
             f"Страница новости удалена из CMS и больше не отображается в ленте сайта."
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Список опубликованных", callback_data="acat_published")],
             [InlineKeyboardButton(text="⬅️ Меню новостей", callback_data="acat_menu")]
         ])
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     else:
         text = (
-            f"❌ **Не удалось удалить новость ID `{news_id}`**
-
-"
-            f"Ошибка: `{res.get('error', 'Неизвестная ошибка')}`"
+            f"❌ <b>Не удалось удалить новость ID <code>{news_id}</code></b>\n\n"
+            f"Ошибка: <code>{res.get('error', 'Неизвестная ошибка')}</code>"
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="⬅️ Меню новостей", callback_data="acat_menu")]
         ])
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
 # 7. Команда /delnews <ID>
 @router.message(Command("delnews"))
@@ -196,15 +172,10 @@ async def cmd_delnews(message: Message):
     args = message.text.strip().split()
     if len(args) < 2 or not args[1].isdigit():
         await message.answer(
-            "ℹ️ **Использование команды:**
-`/delnews <ID_новости>`
-
-"
-            "Пример: `/delnews 3031`
-
-"
-            "Посмотреть список ID опубликованных новостей можно через кнопку меню **«🌐 Опубликованные на сайте»**.",
-            parse_mode="Markdown"
+            "ℹ️ <b>Использование команды:</b>\n<code>/delnews ID_новости</code>\n\n"
+            "Пример: <code>/delnews 3031</code>\n\n"
+            "Посмотреть список ID опубликованных новостей можно через кнопку меню <b>«🌐 Опубликованные на сайте»</b>.",
+            parse_mode="HTML"
         )
         return
         
@@ -217,21 +188,15 @@ async def cmd_delnews(message: Message):
             break
             
     text = (
-        f"⚠️ **Подтверждение удаления**
-
-"
-        f"Вы действительно хотите безвозвратно удалить с сайта **acat.kz** новость:
-"
-        f"📰 **{title}**
-"
-        f"🆔 **ID в CMS:** `{news_id}`
-
-"
-        f"_Действие удалит запись из базы FastEdit CMS и уберёт страницу с сайта._"
+        f"⚠️ <b>Подтверждение удаления</b>\n\n"
+        f"Вы действительно хотите безвозвратно удалить с сайта <b>acat.kz</b> новость:\n"
+        f"📰 <b>{title}</b>\n"
+        f"🆔 <b>ID в CMS:</b> <code>{news_id}</code>\n\n"
+        f"<i>Действие удалит запись из базы FastEdit CMS и уберёт страницу с сайта.</i>"
     )
     
     kb = get_confirm_delete_keyboard(news_id)
-    await message.answer(text, reply_markup=kb, parse_mode="Markdown")
+    await message.answer(text, reply_markup=kb, parse_mode="HTML")
 
 # 8. Список юридических кандидатов с Informburo
 @router.callback_query(F.data == "acat_candidates")
@@ -242,15 +207,14 @@ async def cb_acat_candidates(callback: CallbackQuery):
     if not cards:
         text = "⚠️ Не удалось загрузить карточки с Informburo.kz."
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Меню", callback_data="acat_menu")]])
-        await callback.message.edit_text(text, reply_markup=kb)
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
         return
         
-    lines = ["📋 **Актуальные юридические карточки на Informburo:**
-"]
+    lines = ["📋 <b>Актуальные юридические карточки на Informburo:</b>\n"]
     buttons = []
     
     for i, c in enumerate(cards[:6], 1):
-        status = "✅ _(Опубликовано)_" if c["is_published"] else "🆕 **(Новая)**"
+        status = "✅ <i>(Опубликовано)</i>" if c["is_published"] else "🆕 <b>(Новая)</b>"
         lines.append(f"{i}. {status} {c['title']}")
         
         if not c["is_published"]:
@@ -260,17 +224,14 @@ async def cb_acat_candidates(callback: CallbackQuery):
                 InlineKeyboardButton(text=f"🚀 Опубликовать #{i}", callback_data=f"acat_pub_now:{slug_short}")
             ])
             
-    lines.append("
-_Нажмите кнопку под сообщением для предпросмотра или быстрой публикации._")
+    lines.append("\n<i>Нажмите кнопку под сообщением для предпросмотра или быстрой публикации.</i>")
     buttons.append([InlineKeyboardButton(text="⬅️ Меню новостей", callback_data="acat_menu")])
     
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     try:
-        await callback.message.edit_text("
-".join(lines), reply_markup=kb, parse_mode="Markdown")
+        await callback.message.edit_text("\n".join(lines), reply_markup=kb, parse_mode="HTML")
     except Exception:
-        await callback.message.answer("
-".join(lines), reply_markup=kb, parse_mode="Markdown")
+        await callback.message.answer("\n".join(lines), reply_markup=kb, parse_mode="HTML")
 
 # 9. Опубликовать следующую актуальную
 @router.callback_query(F.data == "acat_publish_next")
@@ -286,8 +247,9 @@ async def cb_acat_publish_next(callback: CallbackQuery):
             
     if not target_card:
         await callback.message.edit_text(
-            "🎉 **Все актуальные юридические карточки уже опубликованы на acat.kz!**",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Меню новостей", callback_data="acat_menu")]])
+            "🎉 <b>Все актуальные юридические карточки уже опубликованы на acat.kz!</b>",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Меню новостей", callback_data="acat_menu")]]),
+            parse_mode="HTML"
         )
         return
         
@@ -297,18 +259,11 @@ async def cb_acat_publish_next(callback: CallbackQuery):
         return
         
     caption = (
-        f"🚀 **Кандидат на публикацию:**
-
-"
-        f"📰 **Заголовок:** {details['title']}
-"
-        f"📅 **Дата источника:** {details['date']}
-
-"
-        f"📝 **Лид:** {details['excerpt']}
-
-"
-        f"🔗 [Открыть оригинал на Informburo]({details['card_url']})"
+        f"🚀 <b>Кандидат на публикацию:</b>\n\n"
+        f"📰 <b>Заголовок:</b> {details['title']}\n"
+        f"📅 <b>Дата источника:</b> {details['date']}\n\n"
+        f"📝 <b>Лид:</b> {details['excerpt']}\n\n"
+        f"🔗 <a href=\"{details['card_url']}\">Открыть оригинал на Informburo</a>"
     )
     
     kb = get_confirm_publish_keyboard(target_card["slug"][:45])
@@ -322,10 +277,10 @@ async def cb_acat_publish_next(callback: CallbackQuery):
             photo=details["image_url"],
             caption=caption,
             reply_markup=kb,
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
     else:
-        await callback.message.edit_text(caption, reply_markup=kb, parse_mode="Markdown")
+        await callback.message.edit_text(caption, reply_markup=kb, parse_mode="HTML")
 
 # 10. Предпросмотр карточки по кнопке
 @router.callback_query(F.data.startswith("acat_prev:"))
@@ -351,18 +306,11 @@ async def cb_acat_preview(callback: CallbackQuery):
         return
         
     caption = (
-        f"👁 **Предпросмотр карточки:**
-
-"
-        f"📰 **{details['title']}**
-"
-        f"📅 Дата: `{details['date']}`
-
-"
-        f"📝 **Лид:** {details['excerpt']}
-
-"
-        f"🔗 [Оригинал статьи]({details['card_url']})"
+        f"👁 <b>Предпросмотр карточки:</b>\n\n"
+        f"📰 <b>{details['title']}</b>\n"
+        f"📅 <b>Дата:</b> <code>{details['date']}</code>\n\n"
+        f"📝 <b>Лид:</b> {details['excerpt']}\n\n"
+        f"🔗 <a href=\"{details['card_url']}\">Оригинал статьи</a>"
     )
     
     kb = get_confirm_publish_keyboard(full_slug[:45])
@@ -376,10 +324,10 @@ async def cb_acat_preview(callback: CallbackQuery):
             photo=details["image_url"],
             caption=caption,
             reply_markup=kb,
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
     else:
-        await callback.message.edit_text(caption, reply_markup=kb, parse_mode="Markdown")
+        await callback.message.edit_text(caption, reply_markup=kb, parse_mode="HTML")
 
 # 11. Подтверждение публикации карточки
 @router.callback_query(F.data.startswith("acat_confirm:") | F.data.startswith("acat_pub_now:"))
@@ -390,8 +338,7 @@ async def cb_acat_confirm_publish(callback: CallbackQuery):
         slug_part = callback.data.split("acat_pub_now:")[1]
         
     await callback.answer("Начинаю публикацию...")
-    status_msg = await callback.message.answer("⏳ **Публикация на acat.kz...**
-_Авторизация в CMS, загрузка фото и создание записи..._")
+    status_msg = await callback.message.answer("⏳ <b>Публикация на acat.kz...</b>\n<i>Авторизация в CMS, загрузка фото и создание записи...</i>", parse_mode="HTML")
     
     cards = await asyncio.to_thread(get_candidate_cards)
     target_url = None
@@ -408,19 +355,12 @@ _Авторизация в CMS, загрузка фото и создание з
     if res.get("success"):
         news_id = res.get("id", "")
         success_text = (
-            f"✅ **Новость успешно опубликована на сайте acat.kz!**
-
-"
-            f"📰 **Заголовок:** {res['title']}
-"
-            f"📅 **Дата:** {res['date']}
-"
-            f"🆔 **ID в CMS:** `{news_id}`
-
-"
-            f"👉 **Ссылка:** [Открыть новость на acat.kz]({res['url']})
-"
-            f"🌐 [Общий раздел новостей](https://www.acat.kz/news/)"
+            f"✅ <b>Новость успешно опубликована на сайте acat.kz!</b>\n\n"
+            f"📰 <b>Заголовок:</b> {res['title']}\n"
+            f"📅 <b>Дата:</b> {res['date']}\n"
+            f"🆔 <b>ID в CMS:</b> <code>{news_id}</code>\n\n"
+            f"👉 <b>Ссылка:</b> <a href=\"{res['url']}\">Открыть новость на acat.kz</a>\n"
+            f"🌐 <a href=\"https://www.acat.kz/news/\">Общий раздел новостей</a>"
         )
         
         buttons = [
@@ -432,12 +372,11 @@ _Авторизация в CMS, загрузка фото и создание з
         buttons.append([InlineKeyboardButton(text="⬅️ Меню новостей", callback_data="acat_menu")])
         
         kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-        await status_msg.edit_text(success_text, reply_markup=kb, parse_mode="Markdown", disable_web_page_preview=False)
+        await status_msg.edit_text(success_text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=False)
     else:
-        err_text = f"❌ **Ошибка при публикации:**
-`{res.get('error', 'Неизвестная ошибка')}`"
+        err_text = f"❌ <b>Ошибка при публикации:</b>\n<code>{res.get('error', 'Неизвестная ошибка')}</code>"
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Меню новостей", callback_data="acat_menu")]])
-        await status_msg.edit_text(err_text, reply_markup=kb, parse_mode="Markdown")
+        await status_msg.edit_text(err_text, reply_markup=kb, parse_mode="HTML")
 
 # 12. Перехват ссылок на informburo.kz/cards, отправленных пользователем в чат
 @router.message(F.text.regexp(r'https?://informburo\.kz/cards/([a-zA-Z0-9_-]+)'))
@@ -449,7 +388,7 @@ async def handle_informburo_url(message: Message):
     card_url = match.group(0)
     slug = match.group(1)
     
-    status_msg = await message.answer("🔍 **Обнаружена карточка Informburo!** Загружаю данные...")
+    status_msg = await message.answer("🔍 <b>Обнаружена карточка Informburo!</b> Загружаю данные...", parse_mode="HTML")
     details = await asyncio.to_thread(get_card_details, card_url)
     
     if not details:
@@ -457,15 +396,10 @@ async def handle_informburo_url(message: Message):
         return
         
     caption = (
-        f"📰 **{details['title']}**
-
-"
-        f"📅 **Дата:** `{details['date']}`
-"
-        f"📝 **Лид:** {details['excerpt']}
-
-"
-        f"Хотите опубликовать эту новость на **acat.kz**?"
+        f"📰 <b>{details['title']}</b>\n\n"
+        f"📅 <b>Дата:</b> <code>{details['date']}</code>\n"
+        f"📝 <b>Лид:</b> {details['excerpt']}\n\n"
+        f"Хотите опубликовать эту новость на <b>acat.kz</b>?"
     )
     
     kb = get_confirm_publish_keyboard(slug[:45])
@@ -476,7 +410,7 @@ async def handle_informburo_url(message: Message):
             photo=details["image_url"],
             caption=caption,
             reply_markup=kb,
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
     else:
-        await message.answer(caption, reply_markup=kb, parse_mode="Markdown")
+        await message.answer(caption, reply_markup=kb, parse_mode="HTML")

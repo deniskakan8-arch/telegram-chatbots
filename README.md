@@ -1,4 +1,4 @@
-﻿# 🤖 Telegram Finance & AI Assistant Bot (Render 24/7)
+# 🤖 Telegram Finance & AI Assistant Bot (Render 24/7)
 
 Многофункциональный Telegram-бот на Python (`aiogram 3.x` + `SQLite` + `Google Gemini 3.6 Flash`), работающий в облаке Render в режиме 24/7. 
 

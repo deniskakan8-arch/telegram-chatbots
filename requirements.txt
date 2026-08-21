@@ -1,6 +1,8 @@
-﻿aiogram>=3.17.0
+aiogram>=3.17.0
 aiofiles>=24.1.0
 python-dotenv>=1.0.0
 google-genai>=2.18.1
-aiofiles>=24.1.0
 requests>=2.31.0
+urllib3>=2.0.0
+matplotlib>=3.8.0
+pypdf>=4.0.0

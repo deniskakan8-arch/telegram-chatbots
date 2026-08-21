@@ -1,6 +1,6 @@
 """
 services/acat_service.py - Модуль интеграции с Informburo и FastEdit CMS acat.kz.
-Автоматизирует парсинг юридических карточек и их публикацию на сайте www.acat.kz.
+Автоматизирует парсинг юридических карточек, их публикацию и удаление на сайте www.acat.kz.
 """
 
 import re
@@ -285,19 +285,23 @@ def publish_card_to_acat(card_url: str):
         time.sleep(1)
         latest_published = get_published_news()
         published_url = f"{CMS_BASE_URL}/news/"
+        news_id = ""
         
-        # Находим URL опубликованной статьи
+        # Находим URL и ID опубликованной статьи
         if latest_published:
             for item in latest_published:
                 if len(item["title"]) >= 15 and len(details["title"]) >= 15:
                     if item["title"][:20].lower() in details["title"].lower() or details["title"][:20].lower() in item["title"].lower():
                         published_url = item["url"]
+                        news_id = item["id"]
                         break
             else:
                 published_url = latest_published[0]["url"]
+                news_id = latest_published[0]["id"]
             
         return {
             "success": True,
+            "id": news_id,
             "title": details["title"],
             "date": details["date"],
             "url": published_url,
@@ -309,3 +313,27 @@ def publish_card_to_acat(card_url: str):
             "success": False,
             "error": f"Ответ сервера CMS: {post_resp.text[:200]}"
         }
+
+def delete_news_from_acat(news_id: str | int) -> dict:
+    """Удаляет новость с сайта acat.kz по её ID через FastEdit CMS."""
+    try:
+        session = requests.Session()
+        login_data = {
+            "auth_admin_name": CMS_USER,
+            "auth_admin_pw": CMS_PASS
+        }
+        session.post(CMS_LOGIN_URL, data=login_data, verify=False, timeout=15)
+        
+        resp = session.get(
+            CMS_AJAX_URL,
+            params={"run": "content", "go": "deleteObject", "id": str(news_id)},
+            verify=False,
+            timeout=15
+        )
+        if resp.status_code == 200 and resp.text.strip() == "1":
+            return {"success": True, "news_id": str(news_id)}
+        else:
+            return {"success": False, "error": f"Ответ сервера CMS: {resp.text[:200]}"}
+    except Exception as e:
+        print(f"Error deleting news {news_id}: {e}")
+        return {"success": False, "error": str(e)}
